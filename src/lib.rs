@@ -12,7 +12,6 @@ use rand::{thread_rng, SeedableRng};
 use ndarray::{LinalgScalar, ScalarOperand};
 use std::ops::AddAssign;
 use std::fmt::{Debug, Display};
-use std::error;
 
 pub trait Numeric:
 LinalgScalar
@@ -55,28 +54,18 @@ impl Integer for i64 {}
 
 const _MERSENNE_PRIME: u64 = (1 << 61) - 1;
 const _MAX_HASH: u64 = (1 << 32) - 1;
-const _HASH_RANGE: u64 = 1 << 32;
+const _HASH_RANGE: u32 = u32::MAX;
 
-// Change the alias to `Box<error::Error>`.
-type Result<T> = std::result::Result<T, Box<dyn error::Error>>;
-
-pub trait QueryDirectedProbe<N, K> {
-    fn query_directed_probe(&self, q: &[N], budget: usize) -> Result<Vec<Vec<K>>>;
-}
-
-pub trait StepWiseProbe<N, K>: VecHash<N, K> {
-    fn step_wise_probe(&self, q: &[N], budget: usize, hash_len: usize) -> Result<Vec<Vec<K>>>;
-}
-
-pub fn create_rng(seed: u64) -> SmallRng {
+pub fn create_rng(seed: Option<u64>) -> SmallRng {
     // TODO: if seed == 0, use random seeded rng
-    if seed == 0 {
-        match SmallRng::from_rng(thread_rng()) {
-            Ok(rng) => rng,
-            Err(_) => SmallRng::from_entropy(),
+    match seed {
+        Some(seed) => SmallRng::seed_from_u64(seed),
+        _ => {
+            match SmallRng::from_rng(thread_rng()) {
+                Ok(rng) => rng,
+                Err(_) => SmallRng::from_entropy(),
+            }
         }
-    } else {
-        SmallRng::seed_from_u64(seed)
     }
 }
 
@@ -84,20 +73,7 @@ pub fn create_rng(seed: u64) -> SmallRng {
 /// In case of a symmetrical hash function, only `hash_vec_query` needs to be implemented.
 pub trait VecHash<N, K> {
     /// Create a hash for a query data point.
-    fn hash_vec_query(&self, v: &[N]) -> Vec<K>;
-    /// Create a hash for a data point that is being stored.
-    fn hash_vec_put(&self, v: &[N]) -> Vec<K> {
-        self.hash_vec_query(v)
-    }
-
-    /// If the hasher implements the QueryDirectedProbe trait it should return Some(self)
-    fn as_query_directed_probe(&self) -> Option<&dyn QueryDirectedProbe<N, K>> {
-        None
-    }
-    /// If the hasher implements the StepWiseProbe trait it should return Some(self)
-    fn as_step_wise_probe(&self) -> Option<&dyn StepWiseProbe<N, K>> {
-        None
-    }
+    fn hash_vec(&self, v: &[N]) -> Vec<K>;
 }
 
 /// A hash family for the [Jaccard Index](https://en.wikipedia.org/wiki/Jaccard_index)
@@ -115,7 +91,7 @@ impl<N, K> MinHash<N, K>
         N: Integer,
         K: Integer,
 {
-    pub fn new(n_projections: usize, dim: usize, seed: u64) -> Self {
+    pub fn new(n_projections: usize, dim: usize, seed: Option<u64>) -> Self {
         let mut pi = Array::zeros((n_projections, dim));
         let mut rng = create_rng(seed);
 
@@ -146,7 +122,7 @@ impl<N, K> VecHash<N, K> for MinHash<N, K>
         N: Integer,
         K: Integer,
 {
-    fn hash_vec_query(&self, v: &[N]) -> Vec<K> {
+    fn hash_vec(&self, v: &[N]) -> Vec<K> {
         let a = &self.pi * &aview1(v);
         let init = K::from_usize(self.n_projections).expect("could not cast to K");
         let hash = a.map_axis(Axis(1), |view| {
@@ -174,8 +150,8 @@ mod test {
     #[test]
     fn test_minhash() {
         let n_projections = 3;
-        let h = <MinHash>::new(n_projections, 5, 0);
-        let hash = h.hash_vec_query(&[1, 0, 1, 0, 1]);
+        let h = <MinHash>::new(n_projections, 5, Some(0));
+        let hash = h.hash_vec(&[1, 0, 1, 0, 1]);
         assert_eq!(hash.len(), n_projections);
         println!("{:?}", hash);
     }

@@ -8,8 +8,6 @@ authors = ["Stefan Grafberger <s.grafberger@uva.nl>"]
 
 [dependencies]
 ndarray = {version = "0.13", features=["serde", "rayon"]}
-ndarray-rand = "^0.11.0"
 num = "^0.2.1"
 serde = { version = "^1.0.104", features = ["derive"] }
 rand = {version = "^0.7", features = ["small_rng"]}
-rand_distr = "^0.2"
