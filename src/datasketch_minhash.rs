@@ -7,12 +7,46 @@ use std::hash::{Hash, Hasher};
 use std::collections::hash_map::DefaultHasher;
 use std::ops::{Mul, Add};
 use std::cmp::min;
+use std::{fmt, error};
 
 const _MERSENNE_PRIME: u64 = (1 << 61) - 1;
 const _MAX_HASH: u64 = (1 << 32) - 1;
 
+type Result<T> = std::result::Result<T, MinHashingError>;
+
+#[derive(Debug)]
+// https://doc.rust-lang.org/rust-by-example/error/multiple_error_types/wrap_error.html for from
+//  example if we need it
+pub enum MinHashingError {
+    DifferentSeeds,
+    DifferentNumPermFuncs
+}
+
+impl fmt::Display for MinHashingError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            MinHashingError::DifferentSeeds =>
+                write!(f, "computing jaccard similarity between minhashes only works if they \
+                use the same seed"),
+            MinHashingError::DifferentNumPermFuncs =>
+                write!(f, "computing jaccard similarity between minhashes only works if they \
+                use the same number of permutation functions")
+        }
+    }
+}
+
+impl error::Error for MinHashingError {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        match *self {
+            MinHashingError::DifferentSeeds => None,
+            MinHashingError::DifferentNumPermFuncs => None
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone)]
 pub struct DataSketchMinHash {
+    seed: Option<u64>,
     num_perm: usize,
     hash_values: Array1<u64>,
     permutations: Array2<u64>
@@ -24,6 +58,7 @@ impl DataSketchMinHash {
         let hash_values = Self::init_hash_values(num_perm);
         let permutations = Self::init_permutations(num_perm, seed);
         DataSketchMinHash {
+            seed,
             num_perm,
             hash_values,
             permutations
@@ -55,7 +90,13 @@ impl DataSketchMinHash {
             });
     }
 
-    pub fn jaccard(&mut self, other_minhash: &DataSketchMinHash) -> f32{
+    pub fn jaccard(&mut self, other_minhash: &DataSketchMinHash) -> Result<f32>{
+        if other_minhash.seed != self.seed{
+            return Err(MinHashingError::DifferentSeeds);
+        }
+        if other_minhash.num_perm != self.num_perm{
+            return Err(MinHashingError::DifferentNumPermFuncs);
+        }
         todo!()
     }
 
@@ -87,14 +128,15 @@ mod test {
     }
 
     #[test]
-    fn test_jaccard() {
+    fn test_jaccard() -> Result<()>{
         let mut m1 = <DataSketchMinHash>::new(4, Some(1));
         let mut m2 = <DataSketchMinHash>::new(4, Some(1));
-        assert_eq!(m1.jaccard(&m2), 1.0);
+        assert_eq!(m1.jaccard(&m2)?, 1.0);
         m2.update(&12);
-        assert_eq!(m1.jaccard(&m2), 0.0);
+        assert_eq!(m1.jaccard(&m2)?, 0.0);
         m1.update(&13);
-        assert!(m1.jaccard(&m2) < 1.0);
+        assert!(m1.jaccard(&m2)? < 1.0);
+        Ok(())
     }
 
     #[test]
