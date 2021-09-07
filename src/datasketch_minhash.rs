@@ -54,7 +54,6 @@ pub struct DataSketchMinHash {
 
 impl DataSketchMinHash {
     pub fn new(num_perm: usize, seed: Option<u64>) -> DataSketchMinHash {
-        let _dim: usize = 0; // TODO
         let hash_values = Self::init_hash_values(num_perm);
         let permutations = Self::init_permutations(num_perm, seed);
         DataSketchMinHash {
