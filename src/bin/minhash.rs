@@ -1,4 +1,4 @@
-use minhash::{MinHash, VecHash};
+use minhash::lsh_rs_minhash::{MinHash, VecHash};
 
 pub fn main() {
     let n_projections = 3;
