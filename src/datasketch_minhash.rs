@@ -82,7 +82,7 @@ impl DataSketchMinHash {
         // TODO: Is there a better way to get u32 hashes?
         let a = self.permutations.index_axis(Axis(1), 0);
         let b = self.permutations.index_axis(Axis(1), 1);
-        let hash_value_permutations = hash_value.mul(&a).add(&b) % _MERSENNE_PRIME;
+        let hash_value_permutations = (hash_value.mul(&a).add(&b) % _MERSENNE_PRIME) & _MAX_HASH;
         // np.min
         Zip::from(&mut self.hash_values).and(&hash_value_permutations)
             .apply(|left, &right| {
@@ -97,7 +97,15 @@ impl DataSketchMinHash {
         if other_minhash.num_perm != self.num_perm{
             return Err(MinHashingError::DifferentNumPermFuncs);
         }
-        todo!()
+        let mut matches: usize = 0;
+        Zip::from(&self.hash_values).and(&other_minhash.hash_values)
+            .apply(|&left, &right| {
+                if left == right {
+                    matches += 1;
+                }
+            });
+        let result = matches as f32 / self.num_perm as f32;
+        Ok(result)
     }
 
     pub fn update_batch<T: Hash>(&mut self, _value_to_be_hashed: &[T]){
@@ -123,7 +131,7 @@ mod test {
         let m2 = <DataSketchMinHash>::new(4, Some(1));
         m1.update(&12);
         for i in 0..4 {
-            assert_eq!(m1.hash_values[i], m2.hash_values[i]);
+            assert!(m1.hash_values[i] < m2.hash_values[i]);
         }
     }
 
