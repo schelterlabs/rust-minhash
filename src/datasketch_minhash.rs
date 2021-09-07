@@ -149,11 +149,13 @@ mod test {
 
     #[test]
     fn test_data_sketch_minhash() {
-        // TODO: This is the old test
+        // A test similar to the one in lsh_rs_minhash
         let n_projections = 3;
-        let _h = <DataSketchMinHash>::new(n_projections, Some(0));
-        // let hash = h.hash_vec(&[1, 0, 1, 0, 1]);
-        // assert_eq!(hash.len(), n_projections);
-        // println!("{:?}", hash);
+        let mut m = <DataSketchMinHash>::new(n_projections, Some(0));
+        &m.update(&0);
+        &m.update(&2);
+        &m.update(&4);
+        assert_eq!(m.hash_values.len(), n_projections);
+        println!("{:?}", &m.hash_values);
     }
 }
