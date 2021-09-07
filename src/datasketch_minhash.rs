@@ -48,7 +48,7 @@ impl error::Error for MinHashingError {
 pub struct DataSketchMinHash {
     seed: Option<u64>,
     num_perm: usize,
-    hash_values: Array1<u64>,
+    pub hash_values: Array1<u64>,
     permutations: Array2<u64>
 }
 
@@ -144,6 +144,9 @@ mod test {
         assert_eq!(m1.jaccard(&m2)?, 0.0);
         m1.update(&13);
         assert!(m1.jaccard(&m2)? < 1.0);
+        m1.update(&12);
+        let distance = m1.jaccard(&m2)?;
+        assert!(distance < 1.0 && distance > 0.0);
         Ok(())
     }
 
@@ -152,9 +155,9 @@ mod test {
         // A test similar to the one in lsh_rs_minhash
         let n_projections = 3;
         let mut m = <DataSketchMinHash>::new(n_projections, Some(0));
-        &m.update(&0);
-        &m.update(&2);
-        &m.update(&4);
+        m.update(&0);
+        m.update(&2);
+        m.update(&4);
         assert_eq!(m.hash_values.len(), n_projections);
         println!("{:?}", &m.hash_values);
     }

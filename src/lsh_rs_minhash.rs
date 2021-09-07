@@ -90,7 +90,6 @@ impl<N, K> MinHash<N, K>
             let mut slice = pi.slice_mut(s![row, ..]);
             slice += &aview1(&permutation_idx);
         }
-        println!("{:?}", pi);
         MinHash {
             pi,
             n_projections,
