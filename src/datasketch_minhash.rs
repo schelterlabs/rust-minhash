@@ -54,6 +54,14 @@ impl DataSketchMinHash {
                 *left = min(*left, right);
             });
     }
+
+    pub fn jaccard(&mut self, other_minhash: &DataSketchMinHash) -> f32{
+        todo!()
+    }
+
+    pub fn update_batch<T: Hash>(&mut self, _value_to_be_hashed: &[T]){
+        unimplemented!("Can be added if we need it");
+    }
 }
 
 #[cfg(test)]
@@ -76,6 +84,17 @@ mod test {
         for i in 0..4 {
             assert_eq!(m1.hash_values[i], m2.hash_values[i]);
         }
+    }
+
+    #[test]
+    fn test_jaccard() {
+        let mut m1 = <DataSketchMinHash>::new(4, Some(1));
+        let mut m2 = <DataSketchMinHash>::new(4, Some(1));
+        assert_eq!(m1.jaccard(&m2), 1.0);
+        m2.update(&12);
+        assert_eq!(m1.jaccard(&m2), 0.0);
+        m1.update(&13);
+        assert!(m1.jaccard(&m2) < 1.0);
     }
 
     #[test]
