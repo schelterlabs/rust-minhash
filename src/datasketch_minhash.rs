@@ -10,7 +10,6 @@ use std::cmp::min;
 
 const _MERSENNE_PRIME: u64 = (1 << 61) - 1;
 const _MAX_HASH: u64 = (1 << 32) - 1;
-const _HASH_RANGE: u32 = u32::MAX;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct DataSketchMinHash {
@@ -37,16 +36,17 @@ impl DataSketchMinHash {
 
     fn init_permutations(num_perm: usize, seed: Option<u64>) -> Array2<u64> {
         let mut rng = create_rng(seed);
-        let distribution = Uniform::new(0, _MERSENNE_PRIME);
+        let distribution = Uniform::new(0, _MAX_HASH);
         Array::random_using((num_perm, 2), distribution, &mut rng)
     }
 
-    fn _update<T: Hash>(&mut self, value_to_be_hashed: &T){
+    pub fn update<T: Hash>(&mut self, value_to_be_hashed: &T){
         let mut hasher = DefaultHasher::new();
         value_to_be_hashed.hash(&mut hasher);
-        let hash_value = hasher.finish();
-        let a = self.permutations.index_axis(Axis(0), 0);
-        let b = self.permutations.index_axis(Axis(0), 1);
+        let hash_value = hasher.finish() as u32 as u64;
+        // TODO: Is there a better way to get u32 hashes?
+        let a = self.permutations.index_axis(Axis(1), 0);
+        let b = self.permutations.index_axis(Axis(1), 1);
         let hash_value_permutations = hash_value.mul(&a).add(&b) % _MERSENNE_PRIME;
         // np.min
         Zip::from(&mut self.hash_values).and(&hash_value_permutations)
@@ -66,6 +66,16 @@ mod test {
         let m2 = <DataSketchMinHash>::new(4, Some(0));
         assert_eq!(m1.hash_values, m2.hash_values);
         assert_eq!(m1.permutations, m2.permutations);
+    }
+
+    #[test]
+    fn test_update() {
+        let mut m1 = <DataSketchMinHash>::new(4, Some(1));
+        let m2 = <DataSketchMinHash>::new(4, Some(1));
+        m1.update(&12);
+        for i in 0..4 {
+            assert_eq!(m1.hash_values[i], m2.hash_values[i]);
+        }
     }
 
     #[test]
