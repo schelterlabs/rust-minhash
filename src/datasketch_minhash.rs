@@ -99,9 +99,7 @@ impl DataSketchMinHash {
         let mut matches: usize = 0;
         Zip::from(&self.hash_values).and(&other_minhash.hash_values)
             .apply(|&left, &right| {
-                if left == right {
-                    matches += 1;
-                }
+                matches += (left == right) as usize;
             });
         let result = matches as f32 / self.num_perm as f32;
         Ok(result)
