@@ -7,48 +7,21 @@ use std::hash::{Hash, Hasher};
 use std::collections::hash_map::DefaultHasher;
 use std::ops::{Mul, Add};
 use std::cmp::min;
-use std::{fmt, error};
+use crate::error::MinHashingError;
 
 const _MERSENNE_PRIME: u64 = (1 << 61) - 1;
 const _MAX_HASH: u64 = (1 << 32) - 1;
 
 type Result<T> = std::result::Result<T, MinHashingError>;
 
-#[derive(Debug)]
-// https://doc.rust-lang.org/rust-by-example/error/multiple_error_types/wrap_error.html for from
-//  example if we need it
-pub enum MinHashingError {
-    DifferentSeeds,
-    DifferentNumPermFuncs
-}
-
-impl fmt::Display for MinHashingError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            MinHashingError::DifferentSeeds =>
-                write!(f, "computing jaccard similarity between minhashes only works if they \
-                use the same seed"),
-            MinHashingError::DifferentNumPermFuncs =>
-                write!(f, "computing jaccard similarity between minhashes only works if they \
-                use the same number of permutation functions")
-        }
-    }
-}
-
-impl error::Error for MinHashingError {
-    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
-        match *self {
-            MinHashingError::DifferentSeeds => None,
-            MinHashingError::DifferentNumPermFuncs => None
-        }
-    }
-}
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct HashValues(pub Array1<u64>);
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct DataSketchMinHash {
     seed: Option<u64>,
     num_perm: usize,
-    pub hash_values: Array1<u64>,
+    pub hash_values: HashValues,
     permutations: Array2<u64>
 }
 
@@ -64,8 +37,8 @@ impl DataSketchMinHash {
         }
     }
 
-    fn init_hash_values(num_perm: usize) -> Array1<u64> {
-        Array1::from_elem(num_perm, _MAX_HASH)
+    fn init_hash_values(num_perm: usize) -> HashValues {
+        HashValues(Array1::from_elem(num_perm, _MAX_HASH))
     }
 
     fn init_permutations(num_perm: usize, seed: Option<u64>) -> Array2<u64> {
@@ -83,7 +56,7 @@ impl DataSketchMinHash {
         let b = self.permutations.index_axis(Axis(1), 1);
         let hash_value_permutations = (hash_value.mul(&a).add(&b) % _MERSENNE_PRIME) & _MAX_HASH;
         // np.min
-        Zip::from(&mut self.hash_values).and(&hash_value_permutations)
+        Zip::from(&mut self.hash_values.0).and(&hash_value_permutations)
             .apply(|left, &right| {
                 *left = min(*left, right);
             });
@@ -97,7 +70,7 @@ impl DataSketchMinHash {
             return Err(MinHashingError::DifferentNumPermFuncs);
         }
         let mut matches: usize = 0;
-        Zip::from(&self.hash_values).and(&other_minhash.hash_values)
+        Zip::from(&self.hash_values.0).and(&other_minhash.hash_values.0)
             .apply(|&left, &right| {
                 matches += (left == right) as usize;
             });
@@ -118,7 +91,7 @@ mod test {
     fn test_init_() {
         let m1 = <DataSketchMinHash>::new(4, Some(0));
         let m2 = <DataSketchMinHash>::new(4, Some(0));
-        assert_eq!(m1.hash_values, m2.hash_values);
+        assert_eq!(m1.hash_values.0, m2.hash_values.0);
         assert_eq!(m1.permutations, m2.permutations);
     }
 
@@ -128,7 +101,7 @@ mod test {
         let m2 = <DataSketchMinHash>::new(4, Some(1));
         m1.update(&12);
         for i in 0..4 {
-            assert!(m1.hash_values[i] < m2.hash_values[i]);
+            assert!(m1.hash_values.0[i] < m2.hash_values.0[i]);
         }
     }
 
@@ -155,7 +128,7 @@ mod test {
         m.update(&0);
         m.update(&2);
         m.update(&4);
-        assert_eq!(m.hash_values.len(), n_projections);
+        assert_eq!(m.hash_values.0.len(), n_projections);
         println!("{:?}", &m.hash_values);
     }
 }

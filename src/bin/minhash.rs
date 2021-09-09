@@ -15,6 +15,6 @@ pub fn main() {
     m.update(&0);
     m.update(&2);
     m.update(&4);
-    assert_eq!(m.hash_values.len(), n_projections);
+    assert_eq!(m.hash_values.0.len(), n_projections);
     println!("Using datasketch approach: {:?}", &m.hash_values);
 }
