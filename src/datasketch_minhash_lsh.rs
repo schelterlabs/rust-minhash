@@ -32,7 +32,7 @@ pub struct DataSketchMinHashLsh<KeyType: Eq + Hash> {
     params: MinHashLshParams,
     hash_tables: Vec<HashMap<HashValuePart, HashSet<KeyType>>>,
     hash_ranges: Vec<(usize, usize)>,
-    keys: HashSet<KeyType>,
+    keys: HashMap<KeyType, Vec<HashValuePart>>,
 }
 
 type Result<T> = std::result::Result<T, MinHashingError>;
@@ -72,6 +72,9 @@ impl<KeyType: Eq + Hash> DataSketchMinHashLsh<KeyType> {
             DataSketchMinHashLsh::<KeyType>::find_optimal_params(threshold, num_perm, &weights);
 
         let hash_tables = (0..params.b).into_iter().map(|_| HashMap::new()).collect();
+        let hash_ranges = (0..params.b).into_iter().map(|i| {
+            (i * params.r, (i+1) * params.r)
+        }).collect();
         Ok(DataSketchMinHashLsh {
             num_perm,
             threshold,
@@ -79,8 +82,8 @@ impl<KeyType: Eq + Hash> DataSketchMinHashLsh<KeyType> {
             buffer_size: 50_000,
             params,
             hash_tables,
-            hash_ranges: vec![],
-            keys: Default::default(),
+            hash_ranges,
+            keys: HashMap::new(),
         })
     }
 
@@ -120,7 +123,7 @@ impl<KeyType: Eq + Hash> DataSketchMinHashLsh<KeyType> {
     }
 
     pub fn is_empty(&self) -> bool {
-        self.hash_tables.iter().any(|table| { table.len() == 0 })
+        self.hash_tables.iter().any(|table| table.len() == 0)
     }
 
     pub fn insert(&mut self, _insert_key: &KeyType, _insert_value: &DataSketchMinHash) {
@@ -146,6 +149,26 @@ mod test {
         let MinHashLshParams { b: b2, r: r2 } = lsh.params;
         assert!(b1 < b2);
         assert!(r1 > r2);
+        Ok(())
+    }
+
+    #[test]
+    /// Check _H output consistent bytes length given the same concatenated hash value size
+    fn test_byteswap() -> Result<()> {
+        for _ in (2..128 + 1).step_by(16) {
+            // TODO: I don't understand yet why we need this
+            let mut lsh = <DataSketchMinHashLsh<&str>>::new(128, None, None)?;
+            let mut m = <DataSketchMinHash>::new(128, None);
+            m.update(&"abcdefg");
+            m.update(&"1234567");
+            lsh.insert(&"m", &m);
+            let sizes = lsh
+                .hash_tables
+                .iter()
+                .flat_map(|table| table.values().map(|set| set.len()))
+                .collect::<Vec<_>>();
+            sizes.iter().for_each(|size| assert_eq!(*size, sizes[0]));
+        }
         Ok(())
     }
 
@@ -217,7 +240,7 @@ mod test {
         }
 
         // Create LSHindex
-        let mut lsh = <DataSketchMinHashLsh<&str>>::new(124, None, Some(0.5))?;
+        let mut lsh = <DataSketchMinHashLsh<&str>>::new(128, None, Some(0.5))?;
         lsh.insert(&"m2", &m2);
         lsh.insert(&"m3", &m3);
         let result = lsh.query(&m1);
