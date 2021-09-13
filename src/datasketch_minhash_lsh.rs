@@ -161,6 +161,14 @@ impl<KeyType: Eq + Hash + Clone> DataSketchMinHashLsh<KeyType> {
         self.keys.contains_key(key)
     }
 
+    pub fn remove(&self, _key: &KeyType) -> bool {
+        todo!("")
+    }
+
+    pub fn get_counts(&self) -> Vec<HashMap<KeyType, usize>> {
+        todo!("")
+    }
+
     pub fn query(&mut self, min_hash: &DataSketchMinHash) -> Result<Vec<KeyType>> {
         if min_hash.hash_values.0.len() != self.num_perm {
             return Err(MinHashingError::DifferentNumPermFuncs);
@@ -246,6 +254,45 @@ mod test {
             lsh.clone().query(&m3).unwrap();
         });
         assert!(result.is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn test_remove() -> Result<()> {
+        let mut lsh = <DataSketchMinHashLsh<&str>>::new(16, None, Some(0.5))?;
+        let mut m1 = <DataSketchMinHash>::new(16, Some(0));
+        m1.update(&"a");
+        let mut m2 = <DataSketchMinHash>::new(16, Some(0));
+        m2.update(&"b");
+        lsh.insert("a", &m1)?;
+        lsh.insert("b", &m2)?;
+
+        lsh.remove(&"a");
+        assert!(!lsh.keys.contains_key("&a"));
+        for table in lsh.hash_tables {
+            for value in table.keys() {
+                assert!(table[value].len() > 0);
+                assert!(!table[value].contains(&"a"))
+            }
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_get_counts() -> Result<()> {
+        let mut lsh = <DataSketchMinHashLsh<&str>>::new(16, None, Some(0.5))?;
+        let mut m1 = <DataSketchMinHash>::new(16, Some(0));
+        m1.update(&"a");
+        let mut m2 = <DataSketchMinHash>::new(16, Some(0));
+        m2.update(&"b");
+        lsh.insert("a", &m1)?;
+        lsh.insert("b", &m2)?;
+
+        let counts = lsh.get_counts();
+        assert_eq!(counts.len(), lsh.params.b);
+        for table in &counts {
+            assert_eq!(table.values().sum::<usize>(), 2);
+        }
         Ok(())
     }
 
