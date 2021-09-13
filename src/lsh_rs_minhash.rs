@@ -1,31 +1,31 @@
 use ndarray::prelude::*;
-use num::{traits::NumCast, Zero, ToPrimitive};
-use std::marker::PhantomData;
+use num::{traits::NumCast, ToPrimitive, Zero};
 use serde::{Deserialize, Serialize};
+use std::marker::PhantomData;
 
-use num::{FromPrimitive};
-use std::cmp::{Ord};
+use num::FromPrimitive;
+use std::cmp::Ord;
 use std::hash::Hash;
 
-use ndarray::{LinalgScalar, ScalarOperand};
-use std::ops::AddAssign;
-use std::fmt::{Debug, Display};
 use crate::create_rng;
+use ndarray::{LinalgScalar, ScalarOperand};
+use std::fmt::{Debug, Display};
+use std::ops::AddAssign;
 
 pub trait Numeric:
-LinalgScalar
-+ ScalarOperand
-+ NumCast
-+ ToPrimitive
-+ Send
-+ Sync
-+ PartialEq
-+ PartialOrd
-+ FromPrimitive
-+ AddAssign
-+ Serialize
-+ Debug
-+ Display
+    LinalgScalar
+    + ScalarOperand
+    + NumCast
+    + ToPrimitive
+    + Send
+    + Sync
+    + PartialEq
+    + PartialOrd
+    + FromPrimitive
+    + AddAssign
+    + Serialize
+    + Debug
+    + Display
 {
 }
 
@@ -69,9 +69,9 @@ pub struct MinHash<N = u8, K = i32> {
 }
 
 impl<N, K> MinHash<N, K>
-    where
-        N: Integer,
-        K: Integer,
+where
+    N: Integer,
+    K: Integer,
 {
     pub fn new(n_projections: usize, dim: usize, seed: Option<u64>) -> Self {
         let mut pi = Array::zeros((n_projections, dim));
@@ -99,9 +99,9 @@ impl<N, K> MinHash<N, K>
 }
 
 impl<N, K> VecHash<N, K> for MinHash<N, K>
-    where
-        N: Integer,
-        K: Integer,
+where
+    N: Integer,
+    K: Integer,
 {
     fn hash_vec(&self, v: &[N]) -> Vec<K> {
         let a = &self.pi * &aview1(v);

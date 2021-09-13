@@ -9,18 +9,22 @@ pub enum MinHashingError {
     WrongThresholdInterval,
     NumPermFuncsTooLow,
     WrongWeightThreshold,
-    UnexpectedSumWeight
+    UnexpectedSumWeight,
 }
 
 impl fmt::Display for MinHashingError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            MinHashingError::DifferentSeeds =>
-                write!(f, "computing jaccard similarity between minhashes only works if they \
-                use the same seed"),
-            MinHashingError::DifferentNumPermFuncs =>
-                write!(f, "computing jaccard similarity between minhashes only works if they \
-                use the same number of permutation functions"),
+            MinHashingError::DifferentSeeds => write!(
+                f,
+                "computing jaccard similarity between minhashes only works if they \
+                use the same seed"
+            ),
+            MinHashingError::DifferentNumPermFuncs => write!(
+                f,
+                "computing jaccard similarity between minhashes only works if they \
+                use the same number of permutation functions"
+            ),
             MinHashingError::WrongThresholdInterval => write!(f, "threshold must be in [0.0, 1.0]"),
             MinHashingError::NumPermFuncsTooLow => write!(f, "Too few permutation functions"),
             MinHashingError::WrongWeightThreshold => write!(f, "Weight must be in [0.0, 1.0]"),

@@ -1,13 +1,13 @@
-use ndarray::{Array2, Array, Array1, Axis, Zip};
+use crate::create_rng;
+use crate::error::MinHashingError;
+use ndarray::{Array, Array1, Array2, Axis, Zip};
+use ndarray_rand::rand_distr::Uniform;
 use ndarray_rand::RandomExt;
 use serde::{Deserialize, Serialize};
-use crate::create_rng;
-use ndarray_rand::rand_distr::Uniform;
-use std::hash::{Hash, Hasher};
-use std::collections::hash_map::DefaultHasher;
-use std::ops::{Mul, Add};
 use std::cmp::min;
-use crate::error::MinHashingError;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
+use std::ops::{Add, Mul};
 
 const _MERSENNE_PRIME: u64 = (1 << 61) - 1;
 const _MAX_HASH: u64 = (1 << 32) - 1;
@@ -22,7 +22,7 @@ pub struct DataSketchMinHash {
     seed: Option<u64>,
     num_perm: usize,
     pub hash_values: HashValues,
-    permutations: Array2<u64>
+    permutations: Array2<u64>,
 }
 
 impl DataSketchMinHash {
@@ -33,7 +33,7 @@ impl DataSketchMinHash {
             seed,
             num_perm,
             hash_values,
-            permutations
+            permutations,
         }
     }
 
@@ -47,7 +47,7 @@ impl DataSketchMinHash {
         Array::random_using((num_perm, 2), distribution, &mut rng)
     }
 
-    pub fn update<T: Hash>(&mut self, value_to_be_hashed: &T){
+    pub fn update<T: Hash>(&mut self, value_to_be_hashed: &T) {
         let mut hasher = DefaultHasher::new();
         value_to_be_hashed.hash(&mut hasher);
         let hash_value = hasher.finish() as u32 as u64;
@@ -56,21 +56,23 @@ impl DataSketchMinHash {
         let b = self.permutations.index_axis(Axis(1), 1);
         let hash_value_permutations = (hash_value.mul(&a).add(&b) % _MERSENNE_PRIME) & _MAX_HASH;
         // np.min
-        Zip::from(&mut self.hash_values.0).and(&hash_value_permutations)
+        Zip::from(&mut self.hash_values.0)
+            .and(&hash_value_permutations)
             .apply(|left, &right| {
                 *left = min(*left, right);
             });
     }
 
-    pub fn jaccard(&mut self, other_minhash: &DataSketchMinHash) -> Result<f32>{
-        if other_minhash.seed != self.seed{
+    pub fn jaccard(&mut self, other_minhash: &DataSketchMinHash) -> Result<f32> {
+        if other_minhash.seed != self.seed {
             return Err(MinHashingError::DifferentSeeds);
         }
-        if other_minhash.num_perm != self.num_perm{
+        if other_minhash.num_perm != self.num_perm {
             return Err(MinHashingError::DifferentNumPermFuncs);
         }
         let mut matches: usize = 0;
-        Zip::from(&self.hash_values.0).and(&other_minhash.hash_values.0)
+        Zip::from(&self.hash_values.0)
+            .and(&other_minhash.hash_values.0)
             .apply(|&left, &right| {
                 matches += (left == right) as usize;
             });
@@ -78,7 +80,7 @@ impl DataSketchMinHash {
         Ok(result)
     }
 
-    pub fn update_batch<T: Hash>(&mut self, _value_to_be_hashed: &[T]){
+    pub fn update_batch<T: Hash>(&mut self, _value_to_be_hashed: &[T]) {
         unimplemented!("Can be added if we need it");
     }
 }
@@ -106,7 +108,7 @@ mod test {
     }
 
     #[test]
-    fn test_jaccard() -> Result<()>{
+    fn test_jaccard() -> Result<()> {
         let mut m1 = <DataSketchMinHash>::new(4, Some(1));
         let mut m2 = <DataSketchMinHash>::new(4, Some(1));
         assert_eq!(m1.jaccard(&m2)?, 1.0);
