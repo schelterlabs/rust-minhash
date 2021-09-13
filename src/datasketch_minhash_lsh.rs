@@ -184,6 +184,31 @@ mod test {
     }
 
     #[test]
+    fn test_insert() -> Result<()> {
+        let mut lsh = <DataSketchMinHashLsh<&str>>::new(128, None, Some(0.5))?;
+        let mut m1 = <DataSketchMinHash>::new(128, Some(0));
+        m1.update(&"a");
+        let mut m2 = <DataSketchMinHash>::new(128, Some(0));
+        m2.update(&"b");
+        lsh.insert("a", &m1)?;
+        lsh.insert("b", &m2)?;
+        for table in &lsh.hash_tables {
+            assert!(table.len() >= 1);
+            let table_values: HashSet<_> = table.values().flatten().collect();
+            assert!(table_values.contains(&"a"));
+            assert!(table_values.contains(&"b"));
+        }
+        assert!(lsh.contains_key(&"a"));
+        assert!(lsh.contains_key(&"b"));
+        let a_keys_content = lsh.keys.get(&"a").unwrap();
+        for (index, hash_part) in a_keys_content.iter().enumerate() {
+            assert!(lsh.hash_tables[index][hash_part].contains(&"a"));
+        }
+
+        Ok(())
+    }
+
+    #[test]
     /// Check _H output consistent bytes length given the same concatenated hash value size
     fn test_byteswap() -> Result<()> {
         for _ in (2..128 + 1).step_by(16) {
