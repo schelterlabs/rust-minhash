@@ -161,8 +161,20 @@ impl<KeyType: Eq + Hash + Clone> DataSketchMinHashLsh<KeyType> {
         self.keys.contains_key(key)
     }
 
-    pub fn remove(&self, _key: &KeyType) -> bool {
-        todo!("")
+    pub fn remove(&mut self, key: &KeyType) -> Result<()> {
+        if !self.keys.contains_key(key){
+            return Err(MinHashingError::KeyDoesNotExist);
+        }
+        for (hash_part, &mut table) in self.keys[key].iter().zip(&mut self.hash_tables){
+            table[&hash_part].remove(key);
+            if let Some(set) = table.get(&hash_part){
+                if set.is_empty() {
+                    table.remove(&hash_part);
+                }
+            }
+        }
+        self.keys.remove(&key);
+        Ok(())
     }
 
     pub fn get_counts(&self) -> Vec<HashMap<KeyType, usize>> {
@@ -177,7 +189,7 @@ impl<KeyType: Eq + Hash + Clone> DataSketchMinHashLsh<KeyType> {
             .hash_ranges
             .iter()
             .zip(&self.hash_tables)
-            .map(|(range, table)| {
+            .flat_map(|(range, table)| {
                 let (start, end) = range;
                 let hash_part = min_hash
                     .hash_values
@@ -186,7 +198,6 @@ impl<KeyType: Eq + Hash + Clone> DataSketchMinHashLsh<KeyType> {
                     .to_owned();
                 table.get(&HashValuePart(hash_part))
             })
-            .flatten()
             .flatten()
             .cloned()
             .collect();
