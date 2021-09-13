@@ -131,6 +131,7 @@ dependencies = [
  "ndarray",
  "ndarray-rand",
  "num",
+ "quadrature",
  "rand",
  "serde",
 ]
@@ -262,6 +263,12 @@ checksum = "b9f5105d4fdaab20335ca9565e106a5d9b82b6219b5ba735731124ac6711d23d"
 dependencies = [
  "unicode-xid",
 ]
+
+[[package]]
+name = "quadrature"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2054ccb02f454fcb2bc81e343aa0a171636a6331003fd5ec24c47a10966634b7"
 
 [[package]]
 name = "quote"

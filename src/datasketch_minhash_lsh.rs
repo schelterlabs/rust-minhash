@@ -1,10 +1,14 @@
 use crate::error::MinHashingError;
 use float_cmp::ApproxEq;
+use num::traits::Pow;
 use num::Float;
+use quadrature::integrate;
 use serde::{Deserialize, Serialize};
 
+const _ALLOWED_INTEGRATE_ERR: f64 = 0.001;
+
 #[derive(Serialize, Deserialize, Clone)]
-pub struct Weights(f32, f32);
+pub struct Weights(f64, f64);
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct MinHashLshParams {
@@ -15,7 +19,7 @@ pub struct MinHashLshParams {
 #[derive(Serialize, Deserialize, Clone)]
 pub struct DataSketchMinHashLsh {
     num_perm: usize,
-    threshold: f32,
+    threshold: f64,
     weights: Weights,
     buffer_size: usize,
     params: MinHashLshParams,
@@ -27,7 +31,7 @@ impl DataSketchMinHashLsh {
     pub fn new(
         num_perm: usize,
         weights: Option<Weights>,
-        threshold: Option<f32>,
+        threshold: Option<f64>,
     ) -> Result<DataSketchMinHashLsh> {
         let threshold = match threshold {
             Some(threshold) if !(0.0..=1.0).contains(&threshold) => {
@@ -65,17 +69,15 @@ impl DataSketchMinHashLsh {
         })
     }
 
-    fn find_optimal_params(threshold: f32, num_perm: usize, weights: &Weights) -> MinHashLshParams {
+    fn find_optimal_params(threshold: f64, num_perm: usize, weights: &Weights) -> MinHashLshParams {
         let Weights(false_positive_weight, false_negative_weight) = weights;
-        let mut min_error = f32::infinity();
+        let mut min_error = f64::infinity();
         let mut opt = MinHashLshParams { b: 0, r: 0 };
         for b in 1..num_perm + 1 {
             let max_r = num_perm / b;
             for r in 1..max_r + 1 {
-                let false_pos: f32 =
-                    DataSketchMinHashLsh::false_positive_probability(threshold, b, r);
-                let false_neg: f32 =
-                    DataSketchMinHashLsh::false_negative_probability(threshold, b, r);
+                let false_pos = DataSketchMinHashLsh::false_positive_probability(threshold, b, r);
+                let false_neg = DataSketchMinHashLsh::false_negative_probability(threshold, b, r);
                 let error = false_pos * false_positive_weight + false_neg * false_negative_weight;
                 if error < min_error {
                     min_error = error;
@@ -86,12 +88,18 @@ impl DataSketchMinHashLsh {
         opt
     }
 
-    fn false_positive_probability(_threshold: f32, _b: usize, _r: usize) -> f32 {
-        unimplemented!("TODO")
+    fn false_positive_probability(threshold: f64, b: usize, r: usize) -> f64 {
+        let b = b as f64;
+        let r = r as f64;
+        let _probability = |s| -> f64 { 1. - f64::pow(1. - f64::pow(s, r), b) };
+        integrate(_probability, 0.0, threshold, _ALLOWED_INTEGRATE_ERR).integral
     }
 
-    fn false_negative_probability(_threshold: f32, _b: usize, _r: usize) -> f32 {
-        unimplemented!("TODO")
+    fn false_negative_probability(threshold: f64, b: usize, r: usize) -> f64 {
+        let b = b as f64;
+        let r = r as f64;
+        let _probability = |s| -> f64 { 1. - (1. - f64::pow(1. - f64::pow(s, r), b)) };
+        integrate(_probability, threshold, 1.0, _ALLOWED_INTEGRATE_ERR).integral
     }
 }
 
