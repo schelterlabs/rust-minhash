@@ -4,6 +4,9 @@ use num::traits::Pow;
 use num::Float;
 use quadrature::integrate;
 use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
+use crate::datasketch_minhash::{HashValues, DataSketchMinHash};
+use std::hash::Hash;
 
 const _ALLOWED_INTEGRATE_ERR: f64 = 0.001;
 
@@ -17,22 +20,25 @@ pub struct MinHashLshParams {
 }
 
 #[derive(Serialize, Deserialize, Clone)]
-pub struct DataSketchMinHashLsh {
+pub struct DataSketchMinHashLsh<KeyType: Eq+Hash> {
     num_perm: usize,
     threshold: f64,
     weights: Weights,
     buffer_size: usize,
     params: MinHashLshParams,
+    hash_tables: HashMap<KeyType ,HashValues>,
+    hash_ranges: Vec<(usize, usize)>,
+    keys: HashSet<KeyType>
 }
 
 type Result<T> = std::result::Result<T, MinHashingError>;
 
-impl DataSketchMinHashLsh {
+impl<KeyType: Eq+Hash> DataSketchMinHashLsh<KeyType> {
     pub fn new(
         num_perm: usize,
         weights: Option<Weights>,
         threshold: Option<f64>,
-    ) -> Result<DataSketchMinHashLsh> {
+    ) -> Result<DataSketchMinHashLsh<KeyType>> {
         let threshold = match threshold {
             Some(threshold) if !(0.0..=1.0).contains(&threshold) => {
                 return Err(MinHashingError::WrongThresholdInterval);
@@ -58,7 +64,7 @@ impl DataSketchMinHashLsh {
             }
             _ => Weights(0.5, 0.5),
         };
-        let params = DataSketchMinHashLsh::find_optimal_params(threshold, num_perm, &weights);
+        let params = DataSketchMinHashLsh::<KeyType>::find_optimal_params(threshold, num_perm, &weights);
 
         Ok(DataSketchMinHashLsh {
             num_perm,
@@ -66,6 +72,9 @@ impl DataSketchMinHashLsh {
             weights,
             buffer_size: 50_000,
             params,
+            hash_tables: Default::default(),
+            hash_ranges: vec![],
+            keys: Default::default()
         })
     }
 
@@ -76,8 +85,8 @@ impl DataSketchMinHashLsh {
         for b in 1..num_perm + 1 {
             let max_r = num_perm / b;
             for r in 1..max_r + 1 {
-                let false_pos = DataSketchMinHashLsh::false_positive_probability(threshold, b, r);
-                let false_neg = DataSketchMinHashLsh::false_negative_probability(threshold, b, r);
+                let false_pos = DataSketchMinHashLsh::<KeyType>::false_positive_probability(threshold, b, r);
+                let false_neg = DataSketchMinHashLsh::<KeyType>::false_negative_probability(threshold, b, r);
                 let error = false_pos * false_positive_weight + false_neg * false_negative_weight;
                 if error < min_error {
                     min_error = error;
@@ -101,15 +110,57 @@ impl DataSketchMinHashLsh {
         let _probability = |s| -> f64 { 1. - (1. - f64::pow(1. - f64::pow(s, r), b)) };
         integrate(_probability, threshold, 1.0, _ALLOWED_INTEGRATE_ERR).integral
     }
+
+    pub fn insert(&mut self, _insert_key: &KeyType, _insert_value: &DataSketchMinHash) {
+        unimplemented!("TODO");
+    }
+
+    pub fn query(&mut self, _query_value: &DataSketchMinHash) {
+        unimplemented!("TODO");
+    }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::datasketch_minhash::DataSketchMinHash;
 
     #[test]
     fn test_init_() -> Result<()> {
-        let _minhash_lsh = <DataSketchMinHashLsh>::new(4, None, None)?;
+        let minhash_lsh = <DataSketchMinHashLsh<&str>>::new(124, None, None)?;
+        println!("{:?}", minhash_lsh.params);
+        Ok(())
+    }
+
+    #[test]
+    fn example_eg1() -> Result<()> {
+        let set1: HashSet<&'static str> = ["minhash", "is", "a", "probabilistic", "data", "structure", "for",
+            "estimating", "the", "similarity", "between", "datasets"].iter().cloned().collect();
+        let set2: HashSet<&'static str> = ["minhash", "is", "a", "probability", "data", "structure", "for",
+            "estimating", "the", "similarity", "between", "documents"].iter().cloned().collect();
+        let set3: HashSet<&'static str> = ["minhash", "is", "probability", "data", "structure", "for",
+            "estimating", "the", "similarity", "between", "documents"].iter().cloned().collect();
+        
+        let n_projections = 128;
+        let mut m1 = <DataSketchMinHash>::new(n_projections, Some(0));
+        let mut m2 =  <DataSketchMinHash>::new(n_projections, Some(0));
+        let mut m3 =  <DataSketchMinHash>::new(n_projections, Some(0));
+        for d in set1 {
+            m1.update(&d);
+        }
+        for d in set2 {
+            m2.update(&d);
+        }
+        for d in set3 {
+            m3.update(&d);
+        }
+
+        // Create LSHindex
+        let mut lsh = <DataSketchMinHashLsh<&str>>::new(124, None, Some(0.5))?;
+        lsh.insert(&"m2", &m2);
+        lsh.insert(&"m3", &m3);
+        let result = lsh.query(&m1);
+        println!("Approximate neighbours with Jaccard similarity > 0.5: {:?}", result);
         Ok(())
     }
 }
