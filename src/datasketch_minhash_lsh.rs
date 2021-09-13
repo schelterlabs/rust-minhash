@@ -1,7 +1,7 @@
 use crate::datasketch_minhash::DataSketchMinHash;
 use crate::error::MinHashingError;
 use float_cmp::ApproxEq;
-use ndarray::Array1;
+use ndarray::{Array1, Axis, Slice};
 use num::traits::Pow;
 use num::Float;
 use quadrature::integrate;
@@ -24,7 +24,7 @@ pub struct MinHashLshParams {
 }
 
 #[derive(Serialize, Deserialize, Clone)]
-pub struct DataSketchMinHashLsh<KeyType: Eq + Hash> {
+pub struct DataSketchMinHashLsh<KeyType: Eq + Hash + Clone> {
     num_perm: usize,
     threshold: f64,
     weights: Weights,
@@ -37,7 +37,7 @@ pub struct DataSketchMinHashLsh<KeyType: Eq + Hash> {
 
 type Result<T> = std::result::Result<T, MinHashingError>;
 
-impl<KeyType: Eq + Hash> DataSketchMinHashLsh<KeyType> {
+impl<KeyType: Eq + Hash + Clone> DataSketchMinHashLsh<KeyType> {
     pub fn new(
         num_perm: usize,
         weights: Option<Weights>,
@@ -72,9 +72,10 @@ impl<KeyType: Eq + Hash> DataSketchMinHashLsh<KeyType> {
             DataSketchMinHashLsh::<KeyType>::find_optimal_params(threshold, num_perm, &weights);
 
         let hash_tables = (0..params.b).into_iter().map(|_| HashMap::new()).collect();
-        let hash_ranges = (0..params.b).into_iter().map(|i| {
-            (i * params.r, (i+1) * params.r)
-        }).collect();
+        let hash_ranges = (0..params.b)
+            .into_iter()
+            .map(|i| (i * params.r, (i + 1) * params.r))
+            .collect();
         Ok(DataSketchMinHashLsh {
             num_perm,
             threshold,
@@ -126,8 +127,38 @@ impl<KeyType: Eq + Hash> DataSketchMinHashLsh<KeyType> {
         self.hash_tables.iter().any(|table| table.len() == 0)
     }
 
-    pub fn insert(&mut self, _insert_key: &KeyType, _insert_value: &DataSketchMinHash) {
-        unimplemented!("TODO");
+    pub fn insert(&mut self, key: KeyType, min_hash: &DataSketchMinHash) -> Result<()> {
+        // TODO: We could also add optional checks whether the key is already present in index
+        // TODO: Why has the original implementation buffer params everywhere
+        if min_hash.hash_values.0.len() != self.num_perm {
+            return Err(MinHashingError::DifferentNumPermFuncs);
+        }
+        let mut hash_value_parts: Vec<HashValuePart> = self
+            .hash_ranges
+            .iter()
+            .map(|(start, end)| {
+                let hash_part = min_hash
+                    .hash_values
+                    .0
+                    .slice_axis(Axis(0), Slice::from(*start..*end))
+                    .to_owned();
+                HashValuePart(hash_part)
+            })
+            .collect();
+        self.keys.insert(key.clone(), hash_value_parts.clone());
+        let hash_table_iter = &mut self.hash_tables.iter_mut();
+        let zipped_drain_iter = hash_value_parts.drain(..).zip(hash_table_iter);
+        for (hash_part, hash_table) in zipped_drain_iter {
+            hash_table
+                .entry(hash_part)
+                .or_insert_with(HashSet::new)
+                .insert(key.clone());
+        }
+        Ok(())
+    }
+
+    pub fn contains_key(&self, key: &KeyType) -> bool {
+        self.keys.contains_key(key)
     }
 
     pub fn query(&mut self, _query_value: &DataSketchMinHash) {
@@ -161,7 +192,7 @@ mod test {
             let mut m = <DataSketchMinHash>::new(128, None);
             m.update(&"abcdefg");
             m.update(&"1234567");
-            lsh.insert(&"m", &m);
+            lsh.insert(&"m", &m)?;
             let sizes = lsh
                 .hash_tables
                 .iter()
@@ -241,8 +272,8 @@ mod test {
 
         // Create LSHindex
         let mut lsh = <DataSketchMinHashLsh<&str>>::new(128, None, Some(0.5))?;
-        lsh.insert(&"m2", &m2);
-        lsh.insert(&"m3", &m3);
+        lsh.insert(&"m2", &m2)?;
+        lsh.insert(&"m3", &m3)?;
         let result = lsh.query(&m1);
         println!(
             "Approximate neighbours with Jaccard similarity > 0.5: {:?}",
