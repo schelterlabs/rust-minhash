@@ -161,7 +161,7 @@ impl<KeyType: Eq + Hash + Clone> DataSketchMinHashLsh<KeyType> {
         self.keys.contains_key(key)
     }
 
-    pub fn query(&mut self, _query_value: &DataSketchMinHash) {
+    pub fn query(&mut self, _query_value: &DataSketchMinHash) -> Vec<KeyType> {
         unimplemented!("TODO");
     }
 }
@@ -204,7 +204,26 @@ mod test {
         for (index, hash_part) in a_keys_content.iter().enumerate() {
             assert!(lsh.hash_tables[index][hash_part].contains(&"a"));
         }
+        Ok(())
+    }
 
+    #[test]
+    fn test_query() -> Result<()> {
+        let mut lsh = <DataSketchMinHashLsh<&str>>::new(16, None, Some(0.5))?;
+        let mut m1 = <DataSketchMinHash>::new(16, Some(0));
+        m1.update(&"a");
+        let mut m2 = <DataSketchMinHash>::new(16, Some(0));
+        m2.update(&"b");
+        lsh.insert("a", &m1)?;
+        lsh.insert("b", &m2)?;
+        let result = lsh.query(&m1);
+        assert!(result.contains(&"a"));
+        let result = lsh.query(&m2);
+        assert!(result.contains(&"b"));
+
+        let m3 = <DataSketchMinHash>::new(18, Some(0));
+        let result = std::panic::catch_unwind(||  { lsh.clone().query(&m3); });
+        assert!(result.is_err());
         Ok(())
     }
 
