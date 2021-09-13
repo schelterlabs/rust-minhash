@@ -24,26 +24,40 @@ type Result<T> = std::result::Result<T, MinHashingError>;
 
 impl DataSketchMinHashLsh {
     pub fn new(num_perm: usize, weights: Option<Weights>, threshold: Option<f32>) -> Result<DataSketchMinHashLsh> {
-        if let Some(threshold) = threshold {
-            if !(0.0..=1.0).contains(&threshold) {
-                return Err(MinHashingError::WrongThresholdInterval);
+        let threshold = match threshold {
+            Some(threshold) if !(0.0..=1.0).contains(&threshold)=> {
+                    return Err(MinHashingError::WrongThresholdInterval);
             }
-        }
-
+            Some(threshold) => threshold,
+            _ => 0.9
+        };
         if num_perm < 2 {
             return Err(MinHashingError::NumPermFuncsTooLow);
         }
-        if let Some(weights) = weights {
-            let Weights(left, right) = weights;
-            if !(0.0..=1.0).contains(&left) || !(0.0..=1.0).contains(&right) {
-                return Err(MinHashingError::WrongWeightThreshold);
+
+        let weights = match weights {
+            Some(weights) => {
+                let Weights(left, right) = weights;
+                if !(0.0..=1.0).contains(&left) || !(0.0..=1.0).contains(&right) {
+                    return Err(MinHashingError::WrongWeightThreshold);
+                }
+                let sum_weights = left + right;
+                if !sum_weights.approx_eq(1.0, (0.0, 2)) {
+                    return Err(MinHashingError::UnexpectedSumWeight);
+                }
+                weights
             }
-            let sum_weights = left + right;
-            if !sum_weights.approx_eq(1.0, (0.0, 2)) {
-                return Err(MinHashingError::UnexpectedSumWeight);
-            }
-        }
-        unimplemented!()
+            _ => Weights(0.5, 0.5)
+        };
+        let params = DataSketchMinHashLsh::find_optimal_params(threshold, num_perm, &weights);
+
+        Ok(DataSketchMinHashLsh {
+            num_perm, threshold, weights, buffer_size: 50_000, params
+        })
+    }
+
+    fn find_optimal_params(_threshold: f32, _num_perm: usize, _weights: &Weights) -> MinHashLshParams {
+        unimplemented!("TODO")
     }
 }
 
