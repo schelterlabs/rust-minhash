@@ -3,8 +3,8 @@ use rand::{SeedableRng, thread_rng};
 
 pub mod lsh_rs_minhash;
 pub mod datasketch_minhash;
+pub mod datasketch_minhash_lsh;
 mod error;
-mod datasketch_minhash_lsh;
 
 pub fn create_rng(seed: Option<u64>) -> SmallRng {
     match seed {

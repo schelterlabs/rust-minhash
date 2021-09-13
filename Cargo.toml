@@ -12,3 +12,4 @@ ndarray-rand = "0.11"
 num = "^0.2.1"
 serde = { version = "^1.0.104", features = ["derive"] }
 rand = {version = "^0.7", features = ["small_rng"]}
+float-cmp = "0.9.0"
