@@ -195,11 +195,11 @@ impl<KeyType: Eq + Hash + Clone> DataSketchMinHashLsh<KeyType> {
             .collect()
     }
 
-    pub fn query(&mut self, min_hash: &DataSketchMinHash) -> Result<Vec<KeyType>> {
+    pub fn query(&mut self, min_hash: &DataSketchMinHash) -> Result<HashSet<KeyType>> {
         if min_hash.hash_values.0.len() != self.num_perm {
             return Err(MinHashingError::DifferentNumPermFuncs);
         }
-        let candidates = self
+        let unique_candidates = self
             .hash_ranges
             .iter()
             .zip(&self.hash_tables)
@@ -215,7 +215,7 @@ impl<KeyType: Eq + Hash + Clone> DataSketchMinHashLsh<KeyType> {
             .flatten()
             .cloned()
             .collect();
-        Ok(candidates)
+        Ok(unique_candidates)
     }
 }
 
@@ -273,6 +273,7 @@ mod test {
         assert!(result.contains(&"a"));
         let result = lsh.query(&m2)?;
         assert!(result.contains(&"b"));
+        assert!(result.len() <= 2);
 
         let m3 = <DataSketchMinHash>::new(18, Some(0));
         let result = std::panic::catch_unwind(|| {
