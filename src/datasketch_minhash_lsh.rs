@@ -162,12 +162,18 @@ impl<KeyType: Eq + Hash + Clone> DataSketchMinHashLsh<KeyType> {
     }
 
     pub fn remove(&mut self, key: &KeyType) -> Result<()> {
-        if !self.keys.contains_key(key){
+        if !self.keys.contains_key(key) {
             return Err(MinHashingError::KeyDoesNotExist);
         }
-        for (hash_part, table) in self.keys.get_mut(key).unwrap().iter_mut().zip(&mut self.hash_tables){
+        for (hash_part, table) in self
+            .keys
+            .get_mut(key)
+            .unwrap()
+            .iter_mut()
+            .zip(&mut self.hash_tables)
+        {
             table.get_mut(hash_part).unwrap().remove(key);
-            if let Some(set) = table.get(hash_part){
+            if let Some(set) = table.get(hash_part) {
                 if set.is_empty() {
                     table.remove(hash_part);
                 }
@@ -177,8 +183,16 @@ impl<KeyType: Eq + Hash + Clone> DataSketchMinHashLsh<KeyType> {
         Ok(())
     }
 
-    pub fn get_counts(&self) -> Vec<HashMap<KeyType, usize>> {
-        todo!("")
+    pub fn get_counts(&self) -> Vec<HashMap<HashValuePart, usize>> {
+        self.hash_tables
+            .iter()
+            .map(|table| {
+                table
+                    .iter()
+                    .map(|(key, value)| (key.clone(), value.len()))
+                    .collect()
+            })
+            .collect()
     }
 
     pub fn query(&mut self, min_hash: &DataSketchMinHash) -> Result<Vec<KeyType>> {

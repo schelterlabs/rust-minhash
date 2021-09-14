@@ -10,7 +10,7 @@ pub enum MinHashingError {
     NumPermFuncsTooLow,
     WrongWeightThreshold,
     UnexpectedSumWeight,
-    KeyDoesNotExist
+    KeyDoesNotExist,
 }
 
 impl fmt::Display for MinHashingError {
@@ -30,7 +30,7 @@ impl fmt::Display for MinHashingError {
             MinHashingError::NumPermFuncsTooLow => write!(f, "Too few permutation functions"),
             MinHashingError::WrongWeightThreshold => write!(f, "Weight must be in [0.0, 1.0]"),
             MinHashingError::UnexpectedSumWeight => write!(f, "Weights must sum to 1.0"),
-            MinHashingError::KeyDoesNotExist => write!(f, "Attempted to remove a non-existing key")
+            MinHashingError::KeyDoesNotExist => write!(f, "Attempted to remove a non-existing key"),
         }
     }
 }
