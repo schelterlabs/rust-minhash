@@ -83,7 +83,7 @@ impl<KeyType: Eq + Hash + Clone> MinHashLsh<KeyType> {
         })
     }
 
-    fn find_optimal_params(threshold: f64, num_perm: usize, weights: &Weights) -> MinHashLshParams {
+    pub fn find_optimal_params(threshold: f64, num_perm: usize, weights: &Weights) -> MinHashLshParams {
         let Weights(false_positive_weight, false_negative_weight) = weights;
         let mut min_error = f64::INFINITY;
         let mut opt = MinHashLshParams { b: 0, r: 0 };
