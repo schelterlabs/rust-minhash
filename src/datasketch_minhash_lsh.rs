@@ -165,11 +165,11 @@ impl<KeyType: Eq + Hash + Clone> DataSketchMinHashLsh<KeyType> {
         if !self.keys.contains_key(key){
             return Err(MinHashingError::KeyDoesNotExist);
         }
-        for (hash_part, &mut table) in self.keys[key].iter().zip(&mut self.hash_tables){
-            table[&hash_part].remove(key);
-            if let Some(set) = table.get(&hash_part){
+        for (hash_part, table) in self.keys.get_mut(key).unwrap().iter_mut().zip(&mut self.hash_tables){
+            table.get_mut(hash_part).unwrap().remove(key);
+            if let Some(set) = table.get(hash_part){
                 if set.is_empty() {
-                    table.remove(&hash_part);
+                    table.remove(hash_part);
                 }
             }
         }
@@ -278,7 +278,7 @@ mod test {
         lsh.insert("a", &m1)?;
         lsh.insert("b", &m2)?;
 
-        lsh.remove(&"a");
+        lsh.remove(&"a")?;
         assert!(!lsh.keys.contains_key("&a"));
         for table in lsh.hash_tables {
             for value in table.keys() {
