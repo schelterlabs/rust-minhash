@@ -1,10 +1,9 @@
 use rand::prelude::SmallRng;
 use rand::{thread_rng, SeedableRng};
 
-pub mod datasketch_minhash;
-pub mod datasketch_minhash_lsh;
 mod error;
-pub mod lsh_rs_minhash;
+pub mod minhash;
+pub mod minhash_lsh;
 
 pub fn create_rng(seed: Option<u64>) -> SmallRng {
     match seed {

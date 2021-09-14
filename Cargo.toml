@@ -7,10 +7,7 @@ authors = ["Stefan Grafberger <s.grafberger@uva.nl>"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ndarray = {version = "0.13", features=["serde", "rayon"]}
-ndarray-rand = "0.11"
-num = "^0.2.1"
-serde = { version = "^1.0.104", features = ["derive"] }
+itertools = "0.10.1"
 rand = {version = "^0.7", features = ["small_rng"]}
 float-cmp = "0.9.0"
 quadrature = "0.1.2"

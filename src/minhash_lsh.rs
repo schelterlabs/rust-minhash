@@ -1,30 +1,26 @@
-use crate::datasketch_minhash::DataSketchMinHash;
 use crate::error::MinHashingError;
+use crate::minhash::MinHash;
 use float_cmp::ApproxEq;
-use ndarray::{Array1, Axis, Slice};
-use num::traits::Pow;
-use num::Float;
 use quadrature::integrate;
-use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 
 const _ALLOWED_INTEGRATE_ERR: f64 = 0.001;
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Clone)]
 pub struct Weights(f64, f64);
 
-#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
-pub struct HashValuePart(pub Array1<u64>);
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct HashValuePart(pub Vec<u64>);
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub struct MinHashLshParams {
     pub b: usize,
     pub r: usize,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
-pub struct DataSketchMinHashLsh<KeyType: Eq + Hash + Clone> {
+#[derive(Clone)]
+pub struct MinHashLsh<KeyType: Eq + Hash + Clone> {
     num_perm: usize,
     threshold: f64,
     weights: Weights,
@@ -37,12 +33,12 @@ pub struct DataSketchMinHashLsh<KeyType: Eq + Hash + Clone> {
 
 type Result<T> = std::result::Result<T, MinHashingError>;
 
-impl<KeyType: Eq + Hash + Clone> DataSketchMinHashLsh<KeyType> {
+impl<KeyType: Eq + Hash + Clone> MinHashLsh<KeyType> {
     pub fn new(
         num_perm: usize,
         weights: Option<Weights>,
         threshold: Option<f64>,
-    ) -> Result<DataSketchMinHashLsh<KeyType>> {
+    ) -> Result<MinHashLsh<KeyType>> {
         let threshold = match threshold {
             Some(threshold) if !(0.0..=1.0).contains(&threshold) => {
                 return Err(MinHashingError::WrongThresholdInterval);
@@ -68,15 +64,14 @@ impl<KeyType: Eq + Hash + Clone> DataSketchMinHashLsh<KeyType> {
             }
             _ => Weights(0.5, 0.5),
         };
-        let params =
-            DataSketchMinHashLsh::<KeyType>::find_optimal_params(threshold, num_perm, &weights);
+        let params = MinHashLsh::<KeyType>::find_optimal_params(threshold, num_perm, &weights);
 
         let hash_tables = (0..params.b).into_iter().map(|_| HashMap::new()).collect();
         let hash_ranges = (0..params.b)
             .into_iter()
             .map(|i| (i * params.r, (i + 1) * params.r))
             .collect();
-        Ok(DataSketchMinHashLsh {
+        Ok(MinHashLsh {
             num_perm,
             threshold,
             weights,
@@ -90,15 +85,13 @@ impl<KeyType: Eq + Hash + Clone> DataSketchMinHashLsh<KeyType> {
 
     fn find_optimal_params(threshold: f64, num_perm: usize, weights: &Weights) -> MinHashLshParams {
         let Weights(false_positive_weight, false_negative_weight) = weights;
-        let mut min_error = f64::infinity();
+        let mut min_error = f64::INFINITY;
         let mut opt = MinHashLshParams { b: 0, r: 0 };
         for b in 1..num_perm + 1 {
             let max_r = num_perm / b;
             for r in 1..max_r + 1 {
-                let false_pos =
-                    DataSketchMinHashLsh::<KeyType>::false_positive_probability(threshold, b, r);
-                let false_neg =
-                    DataSketchMinHashLsh::<KeyType>::false_negative_probability(threshold, b, r);
+                let false_pos = MinHashLsh::<KeyType>::false_positive_probability(threshold, b, r);
+                let false_neg = MinHashLsh::<KeyType>::false_negative_probability(threshold, b, r);
                 let error = false_pos * false_positive_weight + false_neg * false_negative_weight;
                 if error < min_error {
                     min_error = error;
@@ -110,16 +103,14 @@ impl<KeyType: Eq + Hash + Clone> DataSketchMinHashLsh<KeyType> {
     }
 
     fn false_positive_probability(threshold: f64, b: usize, r: usize) -> f64 {
-        let b = b as f64;
-        let r = r as f64;
-        let _probability = |s| -> f64 { 1. - f64::pow(1. - f64::pow(s, r), b) };
+        let _probability =
+            |s| -> f64 { 1. - f64::powf(1. - f64::powi(s, r as i32) as f64, b as f64) };
         integrate(_probability, 0.0, threshold, _ALLOWED_INTEGRATE_ERR).integral
     }
 
     fn false_negative_probability(threshold: f64, b: usize, r: usize) -> f64 {
-        let b = b as f64;
-        let r = r as f64;
-        let _probability = |s| -> f64 { 1. - (1. - f64::pow(1. - f64::pow(s, r), b)) };
+        let _probability =
+            |s| -> f64 { 1. - (1. - f64::powf(1. - f64::powi(s, r as i32), b as f64)) };
         integrate(_probability, threshold, 1.0, _ALLOWED_INTEGRATE_ERR).integral
     }
 
@@ -127,7 +118,7 @@ impl<KeyType: Eq + Hash + Clone> DataSketchMinHashLsh<KeyType> {
         self.hash_tables.iter().any(|table| table.len() == 0)
     }
 
-    pub fn insert(&mut self, key: KeyType, min_hash: &DataSketchMinHash) -> Result<()> {
+    pub fn insert(&mut self, key: KeyType, min_hash: &MinHash) -> Result<()> {
         // TODO: We could also add optional checks whether the key is already present in index
         // TODO: Why has the original implementation buffer params everywhere
         if min_hash.hash_values.0.len() != self.num_perm {
@@ -137,11 +128,7 @@ impl<KeyType: Eq + Hash + Clone> DataSketchMinHashLsh<KeyType> {
             .hash_ranges
             .iter()
             .map(|(start, end)| {
-                let hash_part = min_hash
-                    .hash_values
-                    .0
-                    .slice_axis(Axis(0), Slice::from(*start..*end))
-                    .to_owned();
+                let hash_part = min_hash.hash_values.0[*start..*end].to_owned();
                 HashValuePart(hash_part)
             })
             .collect();
@@ -195,7 +182,7 @@ impl<KeyType: Eq + Hash + Clone> DataSketchMinHashLsh<KeyType> {
             .collect()
     }
 
-    pub fn query(&mut self, min_hash: &DataSketchMinHash) -> Result<HashSet<KeyType>> {
+    pub fn query(&mut self, min_hash: &MinHash) -> Result<HashSet<KeyType>> {
         if min_hash.hash_values.0.len() != self.num_perm {
             return Err(MinHashingError::DifferentNumPermFuncs);
         }
@@ -205,11 +192,7 @@ impl<KeyType: Eq + Hash + Clone> DataSketchMinHashLsh<KeyType> {
             .zip(&self.hash_tables)
             .flat_map(|(range, table)| {
                 let (start, end) = range;
-                let hash_part = min_hash
-                    .hash_values
-                    .0
-                    .slice_axis(Axis(0), Slice::from(*start..*end))
-                    .to_owned();
+                let hash_part = min_hash.hash_values.0[*start..*end].to_owned();
                 table.get(&HashValuePart(hash_part))
             })
             .flatten()
@@ -222,14 +205,14 @@ impl<KeyType: Eq + Hash + Clone> DataSketchMinHashLsh<KeyType> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::datasketch_minhash::DataSketchMinHash;
+    use crate::minhash::MinHash;
 
     #[test]
     fn test_init() -> Result<()> {
-        let lsh = <DataSketchMinHashLsh<&str>>::new(128, None, Some(0.8))?;
+        let lsh = <MinHashLsh<&str>>::new(128, None, Some(0.8))?;
         assert!(lsh.is_empty());
         let MinHashLshParams { b: b1, r: r1 } = lsh.params;
-        let lsh = <DataSketchMinHashLsh<&str>>::new(128, Some(Weights(0.2, 0.8)), Some(0.8))?;
+        let lsh = <MinHashLsh<&str>>::new(128, Some(Weights(0.2, 0.8)), Some(0.8))?;
         let MinHashLshParams { b: b2, r: r2 } = lsh.params;
         assert!(b1 < b2);
         assert!(r1 > r2);
@@ -238,10 +221,10 @@ mod test {
 
     #[test]
     fn test_insert() -> Result<()> {
-        let mut lsh = <DataSketchMinHashLsh<&str>>::new(128, None, Some(0.5))?;
-        let mut m1 = <DataSketchMinHash>::new(128, Some(0));
+        let mut lsh = <MinHashLsh<&str>>::new(128, None, Some(0.5))?;
+        let mut m1 = <MinHash>::new(128, Some(0));
         m1.update(&"a");
-        let mut m2 = <DataSketchMinHash>::new(128, Some(0));
+        let mut m2 = <MinHash>::new(128, Some(0));
         m2.update(&"b");
         lsh.insert("a", &m1)?;
         lsh.insert("b", &m2)?;
@@ -262,10 +245,10 @@ mod test {
 
     #[test]
     fn test_query() -> Result<()> {
-        let mut lsh = <DataSketchMinHashLsh<&str>>::new(16, None, Some(0.5))?;
-        let mut m1 = <DataSketchMinHash>::new(16, Some(0));
+        let mut lsh = <MinHashLsh<&str>>::new(16, None, Some(0.5))?;
+        let mut m1 = <MinHash>::new(16, Some(0));
         m1.update(&"a");
-        let mut m2 = <DataSketchMinHash>::new(16, Some(0));
+        let mut m2 = <MinHash>::new(16, Some(0));
         m2.update(&"b");
         lsh.insert("a", &m1)?;
         lsh.insert("b", &m2)?;
@@ -275,7 +258,7 @@ mod test {
         assert!(result.contains(&"b"));
         assert!(result.len() <= 2);
 
-        let m3 = <DataSketchMinHash>::new(18, Some(0));
+        let m3 = <MinHash>::new(18, Some(0));
         let result = std::panic::catch_unwind(|| {
             lsh.clone().query(&m3).unwrap();
         });
@@ -285,10 +268,10 @@ mod test {
 
     #[test]
     fn test_remove() -> Result<()> {
-        let mut lsh = <DataSketchMinHashLsh<&str>>::new(16, None, Some(0.5))?;
-        let mut m1 = <DataSketchMinHash>::new(16, Some(0));
+        let mut lsh = <MinHashLsh<&str>>::new(16, None, Some(0.5))?;
+        let mut m1 = <MinHash>::new(16, Some(0));
         m1.update(&"a");
-        let mut m2 = <DataSketchMinHash>::new(16, Some(0));
+        let mut m2 = <MinHash>::new(16, Some(0));
         m2.update(&"b");
         lsh.insert("a", &m1)?;
         lsh.insert("b", &m2)?;
@@ -306,10 +289,10 @@ mod test {
 
     #[test]
     fn test_get_counts() -> Result<()> {
-        let mut lsh = <DataSketchMinHashLsh<&str>>::new(16, None, Some(0.5))?;
-        let mut m1 = <DataSketchMinHash>::new(16, Some(0));
+        let mut lsh = <MinHashLsh<&str>>::new(16, None, Some(0.5))?;
+        let mut m1 = <MinHash>::new(16, Some(0));
         m1.update(&"a");
-        let mut m2 = <DataSketchMinHash>::new(16, Some(0));
+        let mut m2 = <MinHash>::new(16, Some(0));
         m2.update(&"b");
         lsh.insert("a", &m1)?;
         lsh.insert("b", &m2)?;
@@ -318,26 +301,6 @@ mod test {
         assert_eq!(counts.len(), lsh.params.b);
         for table in &counts {
             assert_eq!(table.values().sum::<usize>(), 2);
-        }
-        Ok(())
-    }
-
-    #[test]
-    /// Check _H output consistent bytes length given the same concatenated hash value size
-    fn test_byteswap() -> Result<()> {
-        for _ in (2..128 + 1).step_by(16) {
-            // TODO: I don't understand yet why we need this
-            let mut lsh = <DataSketchMinHashLsh<&str>>::new(128, None, None)?;
-            let mut m = <DataSketchMinHash>::new(128, None);
-            m.update(&"abcdefg");
-            m.update(&"1234567");
-            lsh.insert(&"m", &m)?;
-            let sizes = lsh
-                .hash_tables
-                .iter()
-                .flat_map(|table| table.values().map(|set| set.len()))
-                .collect::<Vec<_>>();
-            sizes.iter().for_each(|size| assert_eq!(*size, sizes[0]));
         }
         Ok(())
     }
@@ -396,9 +359,9 @@ mod test {
         .collect();
 
         let n_projections = 128;
-        let mut m1 = <DataSketchMinHash>::new(n_projections, Some(0));
-        let mut m2 = <DataSketchMinHash>::new(n_projections, Some(0));
-        let mut m3 = <DataSketchMinHash>::new(n_projections, Some(0));
+        let mut m1 = <MinHash>::new(n_projections, Some(0));
+        let mut m2 = <MinHash>::new(n_projections, Some(0));
+        let mut m3 = <MinHash>::new(n_projections, Some(0));
         for d in set1 {
             m1.update(&d);
         }
@@ -410,7 +373,7 @@ mod test {
         }
 
         // Create LSHindex
-        let mut lsh = <DataSketchMinHashLsh<&str>>::new(128, None, Some(0.5))?;
+        let mut lsh = <MinHashLsh<&str>>::new(128, None, Some(0.5))?;
         lsh.insert(&"m2", &m2)?;
         lsh.insert(&"m3", &m3)?;
         let result = lsh.query(&m1);
