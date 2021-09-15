@@ -2,8 +2,8 @@ use rand::prelude::SmallRng;
 use rand::{thread_rng, SeedableRng};
 
 mod error;
-mod minhash_lsh;
 mod minhash;
+mod minhash_lsh;
 
 pub use crate::minhash::*;
 pub use crate::minhash_lsh::*;

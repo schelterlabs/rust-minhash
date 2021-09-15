@@ -14,7 +14,7 @@ pub struct Weights(f64, f64);
 pub struct HashValuePart(pub Vec<u64>);
 
 #[derive(Clone, Debug)]
-pub struct MinHashLshParams {
+pub struct LshParams {
     pub b: usize,
     pub r: usize,
 }
@@ -25,7 +25,7 @@ pub struct MinHashLsh<KeyType: Eq + Hash + Clone> {
     threshold: f64,
     weights: Weights,
     buffer_size: usize,
-    params: MinHashLshParams,
+    params: LshParams,
     hash_tables: Vec<HashMap<HashValuePart, HashSet<KeyType>>>,
     hash_ranges: Vec<(usize, usize)>,
     keys: HashMap<KeyType, Vec<HashValuePart>>,
@@ -79,14 +79,14 @@ impl<KeyType: Eq + Hash + Clone> MinHashLsh<KeyType> {
             params,
             hash_tables,
             hash_ranges,
-            keys: HashMap::new(),
+            keys: HashMap::<KeyType, Vec<HashValuePart>>::new(),
         })
     }
 
-    pub fn find_optimal_params(threshold: f64, num_perm: usize, weights: &Weights) -> MinHashLshParams {
+    pub fn find_optimal_params(threshold: f64, num_perm: usize, weights: &Weights) -> LshParams {
         let Weights(false_positive_weight, false_negative_weight) = weights;
         let mut min_error = f64::INFINITY;
-        let mut opt = MinHashLshParams { b: 0, r: 0 };
+        let mut opt = LshParams { b: 0, r: 0 };
         for b in 1..num_perm + 1 {
             let max_r = num_perm / b;
             for r in 1..max_r + 1 {
@@ -95,7 +95,7 @@ impl<KeyType: Eq + Hash + Clone> MinHashLsh<KeyType> {
                 let error = false_pos * false_positive_weight + false_neg * false_negative_weight;
                 if error < min_error {
                     min_error = error;
-                    opt = MinHashLshParams { b, r };
+                    opt = LshParams { b, r };
                 }
             }
         }
@@ -211,9 +211,9 @@ mod test {
     fn test_init() -> Result<()> {
         let lsh = <MinHashLsh<&str>>::new(128, None, Some(0.8))?;
         assert!(lsh.is_empty());
-        let MinHashLshParams { b: b1, r: r1 } = lsh.params;
+        let LshParams { b: b1, r: r1 } = lsh.params;
         let lsh = <MinHashLsh<&str>>::new(128, Some(Weights(0.2, 0.8)), Some(0.8))?;
-        let MinHashLshParams { b: b2, r: r2 } = lsh.params;
+        let LshParams { b: b2, r: r2 } = lsh.params;
         assert!(b1 < b2);
         assert!(r1 > r2);
         Ok(())
