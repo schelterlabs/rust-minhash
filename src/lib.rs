@@ -2,8 +2,11 @@ use rand::prelude::SmallRng;
 use rand::{thread_rng, SeedableRng};
 
 mod error;
-pub mod minhash;
-pub mod minhash_lsh;
+mod minhash_lsh;
+mod minhash;
+
+pub use minhash::*;
+pub use minhash_lsh::*;
 
 pub fn create_rng(seed: Option<u64>) -> SmallRng {
     match seed {
