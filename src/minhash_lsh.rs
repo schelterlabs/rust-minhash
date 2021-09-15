@@ -166,7 +166,7 @@ impl<KeyType: Eq + Hash + Clone> MinHashLsh<KeyType> {
                 }
             }
         }
-        self.keys.remove(&key);
+        self.keys.remove(key);
         Ok(())
     }
 
