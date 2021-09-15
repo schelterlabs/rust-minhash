@@ -5,8 +5,8 @@ mod error;
 mod minhash_lsh;
 mod minhash;
 
-pub use minhash::*;
-pub use minhash_lsh::*;
+pub use crate::minhash::*;
+pub use crate::minhash_lsh::*;
 
 pub fn create_rng(seed: Option<u64>) -> SmallRng {
     match seed {
