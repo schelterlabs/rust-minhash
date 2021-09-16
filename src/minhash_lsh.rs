@@ -8,7 +8,7 @@ use std::hash::Hash;
 const _ALLOWED_INTEGRATE_ERR: f64 = 0.001;
 
 #[derive(Clone)]
-pub struct Weights(f64, f64);
+pub struct Weights(pub f64, pub f64);
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct HashValuePart(pub Vec<u64>);
