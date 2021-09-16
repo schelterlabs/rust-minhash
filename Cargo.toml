@@ -1,5 +1,5 @@
 [package]
-name = "minhash"
+name = "minhash-lsh"
 version = "0.0.1"
 edition = "2018"
 authors = ["Stefan Grafberger <s.grafberger@uva.nl>"]
