@@ -19,6 +19,39 @@ pub struct LshParams {
     pub r: usize,
 }
 
+impl LshParams {
+    pub fn find_optimal_params(threshold: f64, num_perm: usize, weights: &Weights) -> LshParams {
+        let Weights(false_positive_weight, false_negative_weight) = weights;
+        let mut min_error = f64::INFINITY;
+        let mut opt = LshParams { b: 0, r: 0 };
+        for b in 1..num_perm + 1 {
+            let max_r = num_perm / b;
+            for r in 1..max_r + 1 {
+                let false_pos = LshParams::false_positive_probability(threshold, b, r);
+                let false_neg = LshParams::false_negative_probability(threshold, b, r);
+                let error = false_pos * false_positive_weight + false_neg * false_negative_weight;
+                if error < min_error {
+                    min_error = error;
+                    opt = LshParams { b, r };
+                }
+            }
+        }
+        opt
+    }
+
+    fn false_positive_probability(threshold: f64, b: usize, r: usize) -> f64 {
+        let _probability =
+            |s| -> f64 { 1. - f64::powf(1. - f64::powi(s, r as i32) as f64, b as f64) };
+        integrate(_probability, 0.0, threshold, _ALLOWED_INTEGRATE_ERR).integral
+    }
+
+    fn false_negative_probability(threshold: f64, b: usize, r: usize) -> f64 {
+        let _probability =
+            |s| -> f64 { 1. - (1. - f64::powf(1. - f64::powi(s, r as i32), b as f64)) };
+        integrate(_probability, threshold, 1.0, _ALLOWED_INTEGRATE_ERR).integral
+    }
+}
+
 #[derive(Clone)]
 pub struct MinHashLsh<KeyType: Eq + Hash + Clone> {
     num_perm: usize,
@@ -64,7 +97,7 @@ impl<KeyType: Eq + Hash + Clone> MinHashLsh<KeyType> {
             }
             _ => Weights(0.5, 0.5),
         };
-        let params = MinHashLsh::<KeyType>::find_optimal_params(threshold, num_perm, &weights);
+        let params = LshParams::find_optimal_params(threshold, num_perm, &weights);
 
         let hash_tables = (0..params.b).into_iter().map(|_| HashMap::new()).collect();
         let hash_ranges = (0..params.b)
@@ -81,37 +114,6 @@ impl<KeyType: Eq + Hash + Clone> MinHashLsh<KeyType> {
             hash_ranges,
             keys: HashMap::<KeyType, Vec<HashValuePart>>::new(),
         })
-    }
-
-    pub fn find_optimal_params(threshold: f64, num_perm: usize, weights: &Weights) -> LshParams {
-        let Weights(false_positive_weight, false_negative_weight) = weights;
-        let mut min_error = f64::INFINITY;
-        let mut opt = LshParams { b: 0, r: 0 };
-        for b in 1..num_perm + 1 {
-            let max_r = num_perm / b;
-            for r in 1..max_r + 1 {
-                let false_pos = MinHashLsh::<KeyType>::false_positive_probability(threshold, b, r);
-                let false_neg = MinHashLsh::<KeyType>::false_negative_probability(threshold, b, r);
-                let error = false_pos * false_positive_weight + false_neg * false_negative_weight;
-                if error < min_error {
-                    min_error = error;
-                    opt = LshParams { b, r };
-                }
-            }
-        }
-        opt
-    }
-
-    fn false_positive_probability(threshold: f64, b: usize, r: usize) -> f64 {
-        let _probability =
-            |s| -> f64 { 1. - f64::powf(1. - f64::powi(s, r as i32) as f64, b as f64) };
-        integrate(_probability, 0.0, threshold, _ALLOWED_INTEGRATE_ERR).integral
-    }
-
-    fn false_negative_probability(threshold: f64, b: usize, r: usize) -> f64 {
-        let _probability =
-            |s| -> f64 { 1. - (1. - f64::powf(1. - f64::powi(s, r as i32), b as f64)) };
-        integrate(_probability, threshold, 1.0, _ALLOWED_INTEGRATE_ERR).integral
     }
 
     pub fn is_empty(&self) -> bool {
