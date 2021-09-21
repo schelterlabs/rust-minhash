@@ -7,12 +7,15 @@ use std::hash::Hash;
 
 const _ALLOWED_INTEGRATE_ERR: f64 = 0.001;
 
+/// The weights configuring whether to prefer false positives or false negatives
 #[derive(Clone)]
 pub struct Weights(pub f64, pub f64);
 
+/// A part of a HashValue used in MinHashLsh
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct HashValuePart(pub Vec<u64>);
 
+/// The LSH params for the number of bands and the band size
 #[derive(Clone, Debug)]
 pub struct LshParams {
     pub b: usize,
@@ -52,6 +55,7 @@ impl LshParams {
     }
 }
 
+/// The MinHashLsh struct
 #[derive(Clone)]
 pub struct MinHashLsh<KeyType: Eq + Hash + Clone> {
     num_perm: usize,
@@ -67,6 +71,7 @@ pub struct MinHashLsh<KeyType: Eq + Hash + Clone> {
 type Result<T> = std::result::Result<T, MinHashingError>;
 
 impl<KeyType: Eq + Hash + Clone> MinHashLsh<KeyType> {
+    /// Build a new MinHashLsh struct
     pub fn new(
         num_perm: usize,
         weights: Option<Weights>,
@@ -116,10 +121,12 @@ impl<KeyType: Eq + Hash + Clone> MinHashLsh<KeyType> {
         })
     }
 
+    /// Check whether the MinHashLsh contains any MinHash structs
     pub fn is_empty(&self) -> bool {
         self.hash_tables.iter().any(|table| table.len() == 0)
     }
 
+    /// Insert a new MinHash struct
     pub fn insert(&mut self, key: KeyType, min_hash: &MinHash) -> Result<()> {
         // TODO: We could also add optional checks whether the key is already present in index
         // TODO: Why has the original implementation buffer params everywhere
@@ -146,10 +153,12 @@ impl<KeyType: Eq + Hash + Clone> MinHashLsh<KeyType> {
         Ok(())
     }
 
+    /// Checks whether a MinHash struct with a specific key is contained in the MinHashLsh
     pub fn contains_key(&self, key: &KeyType) -> bool {
         self.keys.contains_key(key)
     }
 
+    /// Remove a MinHash struct with a specific key from the MinHashLsh
     pub fn remove(&mut self, key: &KeyType) -> Result<()> {
         if !self.keys.contains_key(key) {
             return Err(MinHashingError::KeyDoesNotExist);
@@ -172,6 +181,7 @@ impl<KeyType: Eq + Hash + Clone> MinHashLsh<KeyType> {
         Ok(())
     }
 
+    /// Get the number of MinHash structs contained in the MinHashLsh
     pub fn get_counts(&self) -> Vec<HashMap<HashValuePart, usize>> {
         self.hash_tables
             .iter()
@@ -184,6 +194,8 @@ impl<KeyType: Eq + Hash + Clone> MinHashLsh<KeyType> {
             .collect()
     }
 
+    /// Query for candidates potentially within a jaccard-distance corresponding to the configured
+    /// threshold
     pub fn query(&mut self, min_hash: &MinHash) -> Result<HashSet<KeyType>> {
         if min_hash.hash_values.0.len() != self.num_perm {
             return Err(MinHashingError::DifferentNumPermFuncs);
