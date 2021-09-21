@@ -10,16 +10,16 @@
 //!
 //!  let mut m1 = <MinHash>::new(4, Some(1));
 //!  let mut m2 = <MinHash>::new(4, Some(1));
-//!  assert_eq!(m1.jaccard(&m2)?, 1.0);
+//!  assert_eq!(m1.jaccard(&m2).unwrap(), 1.0);
 //!
 //!  m2.update(&12);
-//!  assert_eq!(m1.jaccard(&m2)?, 0.0);
+//!  assert_eq!(m1.jaccard(&m2).unwrap(), 0.0);
 //!
 //!  m1.update(&13);
-//!  assert!(m1.jaccard(&m2)? < 1.0);
+//!  assert!(m1.jaccard(&m2).unwrap() < 1.0);
 //!
 //!  m1.update(&12);
-//!  let distance = m1.jaccard(&m2)?;
+//!  let distance = m1.jaccard(&m2).unwrap();
 //!  assert!(distance < 1.0 && distance > 0.0);
 //! ```
 //! ## Example MinHashLsh
@@ -27,20 +27,20 @@
 //! ```rust
 //!  use datasketch_minhash_lsh::{MinHashLsh, MinHash};
 //!
-//!  let mut lsh = <MinHashLsh<&str>>::new(16, None, Some(0.5))?;
+//!  let mut lsh = <MinHashLsh<&str>>::new(16, None, Some(0.5)).unwrap();
 //!  let mut m1 = <MinHash>::new(16, Some(0));
 //!  m1.update(&"a");
 //!
 //!  let mut m2 = <MinHash>::new(16, Some(0));
 //!  m2.update(&"b");
 //!
-//!  lsh.insert("a", &m1)?;
-//!  lsh.insert("b", &m2)?;
+//!  lsh.insert("a", &m1).unwrap();
+//!  lsh.insert("b", &m2).unwrap();
 //!
-//!  let result = lsh.query(&m1)?;
+//!  let result = lsh.query(&m1).unwrap();
 //!  assert!(result.contains(&"a"));
 //!
-//!  let result = lsh.query(&m2)?;
+//!  let result = lsh.query(&m2).unwrap();
 //!  assert!(result.contains(&"b"));
 //!  assert!(result.len() <= 2);
 //! ```
@@ -56,7 +56,7 @@ mod minhash_lsh;
 pub use crate::minhash::*;
 pub use crate::minhash_lsh::*;
 
-pub fn create_rng(seed: Option<u64>) -> SmallRng {
+fn create_rng(seed: Option<u64>) -> SmallRng {
     match seed {
         Some(seed) => SmallRng::seed_from_u64(seed),
         _ => match SmallRng::from_rng(thread_rng()) {
