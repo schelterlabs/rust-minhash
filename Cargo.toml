@@ -4,7 +4,6 @@ version = "0.0.1"
 edition = "2018"
 authors = ["Stefan Grafberger <s.grafberger@uva.nl>"]
 license="MIT"
-license-file = "LICENSE"
 repository = "https://github.com/schelterlabs/rust-minhash"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
