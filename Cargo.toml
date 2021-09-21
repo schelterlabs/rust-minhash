@@ -1,5 +1,6 @@
 [package]
 name = "datasketch-minhash-lsh"
+description = "A Rust version of the min-hash LSH part of the Python datasketch library"
 version = "0.0.1"
 edition = "2018"
 authors = ["Stefan Grafberger <s.grafberger@uva.nl>"]
